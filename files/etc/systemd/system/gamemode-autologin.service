@@ -1,0 +1,15 @@
+[Unit]
+Description=Conditional Steam Game Mode autologin (HDMI-dependent)
+# Must land before the display manager reads its config.
+Before=display-manager.service
+ConditionPathExists=/etc/systemd/system/display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/usr/libexec/gamemode-autologin
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

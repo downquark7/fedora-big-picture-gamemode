@@ -1,0 +1,81 @@
+#!/usr/bin/bash
+# /etc/gamescope-session-plus/sessions.d/steam
+#
+# Desktop-PC overrides for the Steam Game Mode session.
+#
+# Sourced AFTER /usr/share/gamescope-session-plus/sessions.d/steam, so anything
+# set here wins. Only put deltas here - the vendor file supplies the ~40 STEAM_*
+# feature flags and the default CLIENTCMD.
+#
+# Per-user overrides (no root needed) go in
+#   ~/.config/gamescope-session-plus/sessions.d/steam
+# which is sourced last of all.
+
+# --- Output selection --------------------------------------------------------
+# Priority list for gamescope's --prefer-output. First CONNECTED match wins.
+#
+# The vendor default is "*,eDP-1" - the wildcard is FIRST there, which makes the
+# rest of the list meaningless. Order is priority, so put your preferred display
+# first. List your connectors with:
+#   for d in /sys/class/drm/card*-*/; do echo "$(basename $d): $(cat $d/status)"; done
+#
+# NOTE: gamescope picks its output ONCE, at session start. Plugging in a
+# higher-priority display mid-session does nothing - it will not migrate.
+OUTPUT_CONNECTOR="HDMI-A-1,HDMI-A-2,DP-1,DP-2,*"
+
+# Deliberately NOT setting SCREEN_WIDTH/SCREEN_HEIGHT. Hardcoding a mode breaks
+# any setup that switches between displays of different resolutions. Left unset,
+# gamescope uses each output's native mode, and Steam's in-session Display
+# settings can override it (persisted to ~/.config/gamescope/modes.cfg).
+
+# --- VRR / FreeSync ----------------------------------------------------------
+# Adds --adaptive-sync. Comment out if the Steam menu flickers - static menus sit
+# at very low framerates and some panels (OLEDs especially) show brightness
+# shifts with VRR down there.
+ADAPTIVE_SYNC=1
+
+# --- HDR ---------------------------------------------------------------------
+# Off by default. Only enable if your display actually does HDR - forcing it on
+# an SDR panel looks washed out.
+#
+# Sets --hdr-enabled --hdr-itm-enable and exports ENABLE_HDR_WSI=1, DXVK_HDR=1.
+# Requires ENABLE_GAMESCOPE_WSI=1 (the vendor file sets it) and a gamescope with
+# --hdr-enabled. Verify with: gamescope --help | grep hdr
+#ENABLE_GAMESCOPE_HDR=1
+
+# WARNING: the vendor script couples --hdr-itm-enable to the variable above, so
+# you cannot get HDR without inverse tone mapping through this knob. ITM
+# upconverts SDR content into the HDR container; on OLEDs some people find SDR
+# games look over-bright. Decoupling requires overriding GAMESCOPECMD wholesale.
+
+# GAMESCOPE_HDR_NITS sets BOTH --hdr-itm-sdr-nits and --hdr-sdr-content-nits to
+# the same value, which is crude - the first is the level SDR is assumed to be
+# mastered at, the second is how bright SDR appears in HDR mode. Left unset so
+# gamescope's defaults apply. If SDR looks too bright, try 203 (ITU reference
+# white) and work up.
+#GAMESCOPE_HDR_NITS=203
+
+# --- Cursor ------------------------------------------------------------------
+# The vendor sets 256, sized for a 7" handheld at arm's length. Enormous on a
+# monitor. Raise toward 96-128 for a TV at couch distance.
+XCURSOR_SCALE=64
+
+# --- Client ------------------------------------------------------------------
+# Vendor default:
+#   CLIENTCMD="steam -gamepadui -steamos3 -steampal -steamdeck"
+#
+#   -gamepadui   the Deck / Big Picture UI itself
+#   -steamos3    SteamOS-3 integration paths
+#   -steampal    Deck-style settings panels
+#   -steamdeck   makes Steam report itself as Deck hardware
+#
+# -steamdeck is kept by default: it gives the most complete UI, and Steam probes
+# steamos-manager over D-Bus and hides controls the hardware does not implement,
+# so you do not get dead TDP/battery sliders on a desktop. Uncomment to drop it:
+#CLIENTCMD="steam -gamepadui -steamos3 -steampal"
+
+# --- Tearing -----------------------------------------------------------------
+# The vendor sets GAMESCOPE_DISABLE_ASYNC_FLIPS=1 (described in-source as a
+# "temporary crutch"), which disables tearing despite also advertising tearing
+# support to Steam. Uncomment to allow tearing for lower latency.
+#unset GAMESCOPE_DISABLE_ASYNC_FLIPS

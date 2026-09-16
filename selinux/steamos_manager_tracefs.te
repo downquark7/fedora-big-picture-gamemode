@@ -1,0 +1,22 @@
+module steamos_manager_tracefs 1.1;
+
+require {
+	type init_t;
+	type tracefs_t;
+	class file { create open read write getattr append };
+	class dir { add_name create getattr open read search write };
+}
+
+# steamos-manager (Terra build, runs unlabelled as init_t) starts an "SLS log
+# receiver" - steamos-log-submitter - which creates a tracefs instance at
+#   /sys/kernel/tracing/instances/steamos-log-submitter
+# and enables kernel trace events under it, e.g.
+#   events/oom/mark_victim/enable
+# to observe OOM kills. Without these the daemon exits with
+# "Error: Permission denied (os error 13)" at startup.
+#
+# Scoped deliberately: init_t -> tracefs_t only. Broader than the exact
+# denials observed so far (create/write/open) because the daemon walks the
+# tracefs tree and would otherwise surface one new denial per restart.
+allow init_t tracefs_t:dir { add_name create getattr open read search write };
+allow init_t tracefs_t:file { create open read write getattr append };

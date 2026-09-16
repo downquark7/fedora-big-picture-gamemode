@@ -1,0 +1,67 @@
+#!/bin/bash
+#
+# Derived from Bazzite's system_files/deck/shared/usr/libexec/os-session-select
+#   https://github.com/ublue-os/bazzite
+# Copyright the Universal Blue contributors.
+# Licensed under the Apache License, Version 2.0. See LICENSES/Apache-2.0.txt.
+#
+# MODIFIED FROM THE ORIGINAL:
+#   1. Dropped the image-info.json lookup, which reads Bazzite's rpm-ostree
+#      image metadata and does not exist on a traditional Fedora install.
+#      The desktop session is autodetected from /usr/share/wayland-sessions.
+#   2. Added a "desktop" case. The original cases only on plasma /
+#      plasma-wayland / *-persistent, but the gamescope-session watchdog calls
+#      `steamos-session-select desktop` from short_session_recover - which falls
+#      through to *) and exits 1 upstream, making crash recovery a no-op.
+#
+# ---------------------------------------------------------------------------
+# Distro hook for Steam's session switching.
+#
+# Steam's "Switch to Desktop" button runs `steamos-session-select <session>`,
+# which is a pure dispatcher: it execs the first of
+#   /usr/lib/os-session-select
+#   /usr/libexec/os-session-select
+# that exists, and falls back to `steam -shutdown` if neither does.
+
+set -e
+
+session="${1:-gamescope}"
+
+# Pick a desktop session to switch to. Override by setting DESKTOP_SESSION in
+# /etc/default/gamemode-session if you want something other than the default.
+if [[ -r /etc/default/gamemode-session ]]; then
+	. /etc/default/gamemode-session
+fi
+
+if [[ -z "${DESKTOP_SESSION:-}" ]]; then
+	for candidate in plasma.desktop gnome.desktop; do
+		if [[ -e "/usr/share/wayland-sessions/${candidate}" ]]; then
+			DESKTOP_SESSION="$candidate"
+			break
+		fi
+	done
+fi
+
+if [[ -z "${DESKTOP_SESSION:-}" ]]; then
+	echo >&2 "!! No desktop session found in /usr/share/wayland-sessions"
+	exit 1
+fi
+
+case "$session" in
+	desktop|plasma|plasma-wayland|gnome|gnome-wayland)
+		steamosctl switch-to-desktop-mode "$DESKTOP_SESSION"
+		;;
+	plasma-wayland-persistent|plasma-x11-persistent|gnome-wayland-persistent)
+		steamosctl set-default-login-mode desktop
+		steamosctl set-default-desktop-session "$DESKTOP_SESSION"
+		steamosctl switch-to-desktop-mode
+		;;
+	gamescope)
+		steamosctl set-default-login-mode game
+		steamosctl switch-to-game-mode
+		;;
+	*)
+		echo >&2 "!! Unrecognized session '$session'"
+		exit 1
+		;;
+esac
