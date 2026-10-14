@@ -1,0 +1,15 @@
+[Unit]
+Description=Turn off Steam Controllers on power off
+# Shutdown units must opt out of the default Conflicts=shutdown.target,
+# otherwise they are stopped instead of started. Runs early in shutdown,
+# while USB is still up.
+DefaultDependencies=no
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/steam-controller-off
+TimeoutStartSec=10
+
+[Install]
+WantedBy=poweroff.target halt.target

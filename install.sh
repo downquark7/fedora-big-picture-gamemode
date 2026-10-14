@@ -46,7 +46,8 @@ Usage: sudo ./install.sh [options]
 
   --controller-wake      Let a Steam Controller (2026) on its Puck wake the PC
                          from sleep, and turn controllers off before suspend
-                         so they do not wake it straight back up.
+                         (so they do not wake it straight back up) and on
+                         power off.
 
   --sleep-webhooks       POST a webhook on suspend and on resume (e.g. Home
                          Assistant turning the TV off/on). Set the URLs in
@@ -252,8 +253,11 @@ if (( DO_CONTROLLER_WAKE )); then
 		/usr/libexec/steam-controller-off
 	install -Dm644 "$REPO_DIR/files/etc/systemd/system/steam-controller-off.service" \
 		/etc/systemd/system/steam-controller-off.service
+	# Same on power off, so controllers don't stay on (and drain) after shutdown.
+	install -Dm644 "$REPO_DIR/files/etc/systemd/system/steam-controller-off-shutdown.service" \
+		/etc/systemd/system/steam-controller-off-shutdown.service
 	systemctl daemon-reload
-	systemctl enable steam-controller-off.service
+	systemctl enable steam-controller-off.service steam-controller-off-shutdown.service
 	warn "If the PC still wakes on its own, another device on the same USB"
 	warn "controller (often a mouse receiver) may be waking it. Check"
 	warn "  grep . /sys/bus/usb/devices/*/power/wakeup"

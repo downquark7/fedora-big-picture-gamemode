@@ -47,7 +47,8 @@ rm -f /etc/gamescope-session-plus/sessions.d/steam
 rm -f "/usr/lib/systemd/user/gamescope-session-plus@steam.service.wants/steamos-powerbuttond.service"
 
 info "Removing controller wake support and sleep webhooks"
-for u in steam-controller-off.service webhook-sleep.service webhook-wake.service; do
+for u in steam-controller-off.service steam-controller-off-shutdown.service \
+         webhook-sleep.service webhook-wake.service; do
 	systemctl disable "$u" >/dev/null 2>&1 || true
 	rm -f "/etc/systemd/system/$u"
 done

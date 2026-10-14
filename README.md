@@ -196,6 +196,9 @@ For the Steam Controller (2026) on its USB Puck. Two parts:
   (feature report `0x9F` with payload `off!`, the same one SDL and community
   tools use) to each Puck slot over hidraw. Empty slots reject it, which is
   ignored.
+- **`steam-controller-off-shutdown.service`** runs the same script on power
+  off, so controllers don't stay on after the PC shuts down. Reboots are left
+  alone so the controller is still connected when the PC comes back.
 
 Press the Steam button to wake. If the PC still wakes up on its own, another
 device behind the same USB controller is probably doing it; a wireless mouse
