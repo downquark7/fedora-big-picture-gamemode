@@ -1,0 +1,11 @@
+[Unit]
+Description=Turn off Steam Controllers before suspend (stops instant wake)
+Before=sleep.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/steam-controller-off
+TimeoutStartSec=10
+
+[Install]
+WantedBy=sleep.target

@@ -46,6 +46,17 @@ info "Removing session tuning"
 rm -f /etc/gamescope-session-plus/sessions.d/steam
 rm -f "/usr/lib/systemd/user/gamescope-session-plus@steam.service.wants/steamos-powerbuttond.service"
 
+info "Removing controller wake support and sleep webhooks"
+for u in steam-controller-off.service webhook-sleep.service webhook-wake.service; do
+	systemctl disable "$u" >/dev/null 2>&1 || true
+	rm -f "/etc/systemd/system/$u"
+done
+rm -f /usr/libexec/steam-controller-off /usr/libexec/sleep-webhook
+rm -f /etc/udev/rules.d/61-steam-controller-wake.rules
+udevadm control --reload >/dev/null 2>&1 || true
+systemctl daemon-reload
+warn "Leaving /etc/default/sleep-webhooks (your URLs) in place; delete it by hand."
+
 info "Disabling steamos-manager"
 for u in steamos-manager.service; do
 	systemctl disable --now "$u" >/dev/null 2>&1 || true

@@ -1,0 +1,42 @@
+#!/usr/bin/bash
+#
+# POST a webhook when the PC suspends or resumes, e.g. to have Home Assistant
+# turn a TV off on sleep and back on at wake.
+# Called by webhook-sleep.service (arg: sleep) and webhook-wake.service (arg: wake).
+#
+# URLs come from /etc/default/sleep-webhooks:
+#   SLEEP_URL="http://homeassistant.local:8123/api/webhook/<id>"
+#   WAKE_URL="http://homeassistant.local:8123/api/webhook/<id>"
+# Either may be left empty to skip that event.
+
+CONF=/etc/default/sleep-webhooks
+[[ -r $CONF ]] && . "$CONF"
+
+case "$1" in
+sleep)
+	url=$SLEEP_URL
+	# Network is still up here. Keep it short so suspend isn't delayed.
+	opts=(--max-time 3)
+	;;
+wake)
+	url=$WAKE_URL
+	# The link and DHCP take a few seconds to return after resume, so retry
+	# for up to about a minute.
+	opts=(--max-time 5 --retry 30 --retry-delay 2 --retry-max-time 60
+	      --retry-all-errors --retry-connrefused)
+	;;
+*)
+	echo "usage: $0 sleep|wake" >&2
+	exit 2
+	;;
+esac
+
+if [[ -z $url ]]; then
+	echo "$1 webhook: no URL set in $CONF, skipping"
+	exit 0
+fi
+
+code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${opts[@]}" "$url")
+rc=$?
+echo "$1 webhook: curl exit $rc, HTTP $code"
+exit 0   # never fail the unit; a missed webhook must not affect suspend

@@ -1,0 +1,4 @@
+# Let Valve receivers (Steam Controller puck/dongle) wake the PC from sleep.
+# 60-steam-input.rules enables wakeup on the device only; this also enables it on
+# every parent hub/controller up the chain (the root hub otherwise blocks the wake).
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="28de", RUN+="/bin/sh -c 'd=/sys%p; while [ $$d != /sys/devices ]; do [ -w $$d/power/wakeup ] && echo enabled > $$d/power/wakeup; d=$${d%%/*}; done'"

@@ -1,0 +1,11 @@
+[Unit]
+Description=Home Assistant webhook on suspend (TV off)
+Before=sleep.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/sleep-webhook sleep
+TimeoutStartSec=10
+
+[Install]
+WantedBy=sleep.target

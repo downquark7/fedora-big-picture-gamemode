@@ -173,6 +173,54 @@ and steamos-manager writes a one-shot SDDM drop-in and drops
   effects: sets your GTK-3 cursor theme to `steam`, touches Steam config, and
   spawns `steam_notif_daemon`.
 
+## Optional extras
+
+These are independent of the stages above and can be installed on their own.
+
+### `--controller-wake`: wake from sleep with a Steam Controller
+
+```sh
+sudo ./install.sh --controller-wake
+```
+
+For the Steam Controller (2026) on its USB Puck. Two parts:
+
+- **A udev rule** (`61-steam-controller-wake.rules`). `steam-devices` already
+  enables USB wakeup on the Puck, but not on the root hub it sits under, so the
+  wake signal never reaches the system. The rule enables wakeup on every parent
+  up the chain.
+- **`steam-controller-off.service`**, which turns controllers off right before
+  suspend. Once wakeup works, a controller that is still on wakes the PC again
+  a few seconds after it sleeps. Steam does not know about a suspend triggered
+  outside it, so the script sends the controller's own power-off command
+  (feature report `0x9F` with payload `off!`, the same one SDL and community
+  tools use) to each Puck slot over hidraw. Empty slots reject it, which is
+  ignored.
+
+Press the Steam button to wake. If the PC still wakes up on its own, another
+device behind the same USB controller is probably doing it; a wireless mouse
+receiver is the usual culprit. `grep . /sys/bus/usb/devices/*/power/wakeup`
+lists what can wake the system.
+
+### `--sleep-webhooks`: run something on sleep and wake
+
+```sh
+sudo ./install.sh --sleep-webhooks
+sudoedit /etc/default/sleep-webhooks    # set SLEEP_URL / WAKE_URL
+/usr/libexec/sleep-webhook sleep        # test without suspending
+```
+
+POSTs `SLEEP_URL` before suspend and `WAKE_URL` after resume, for example Home
+Assistant webhooks that turn the TV off and on. Leave either empty to skip it.
+
+- The sleep call times out after 3 seconds so it never holds up suspend.
+- After resume the network takes a few seconds to come back, so the wake call
+  retries for up to a minute.
+- A failed webhook never fails the unit or blocks sleep.
+
+Check what happened on the last cycle with
+`journalctl -b -u webhook-sleep -u webhook-wake`.
+
 ## Uninstall
 
 ```sh

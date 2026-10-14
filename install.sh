@@ -10,6 +10,7 @@ TERRA_PKGS=(gamescope-session gamescope-session-steam steamos-manager
             steamos-manager-gamescope-session-plus powerbuttond steam-notif-daemon)
 
 DO_CORE=0 DO_SWITCHING=0 DO_AUTOLOGIN=0 DO_CONDITIONAL=0 ASSUME_YES=0
+DO_CONTROLLER_WAKE=0 DO_SLEEP_WEBHOOKS=0
 
 die()  { echo >&2 "!! $*"; exit 1; }
 info() { echo ":: $*"; }
@@ -43,6 +44,14 @@ Usage: sudo ./install.sh [options]
                          Requires --session-switching. Mutually exclusive
                          with --autologin.
 
+  --controller-wake      Let a Steam Controller (2026) on its Puck wake the PC
+                         from sleep, and turn controllers off before suspend
+                         so they do not wake it straight back up.
+
+  --sleep-webhooks       POST a webhook on suspend and on resume (e.g. Home
+                         Assistant turning the TV off/on). Set the URLs in
+                         /etc/default/sleep-webhooks.
+
   --all                  --core --session-switching --conditional-autologin
   -y, --yes              Do not prompt.
   -h, --help             This.
@@ -57,6 +66,8 @@ while (( $# )); do
 		--session-switching) DO_CORE=1; DO_SWITCHING=1 ;;
 		--autologin) DO_CORE=1; DO_SWITCHING=1; DO_AUTOLOGIN=1 ;;
 		--conditional-autologin) DO_CORE=1; DO_SWITCHING=1; DO_CONDITIONAL=1 ;;
+		--controller-wake) DO_CONTROLLER_WAKE=1 ;;
+		--sleep-webhooks) DO_SLEEP_WEBHOOKS=1 ;;
 		--all) DO_CORE=1; DO_SWITCHING=1; DO_CONDITIONAL=1 ;;
 		-y|--yes) ASSUME_YES=1 ;;
 		-h|--help) usage; exit 0 ;;
@@ -64,7 +75,7 @@ while (( $# )); do
 	esac
 	shift
 done
-(( DO_CORE || DO_SWITCHING )) || DO_CORE=1
+(( DO_CORE || DO_SWITCHING || DO_CONTROLLER_WAKE || DO_SLEEP_WEBHOOKS )) || DO_CORE=1
 if (( DO_AUTOLOGIN && DO_CONDITIONAL )); then
 	die "--autologin and --conditional-autologin are mutually exclusive"
 fi
@@ -223,6 +234,49 @@ if (( DO_CONDITIONAL )); then
 	warn "A TV plugged in but POWERED OFF reports disconnected. Rebooting often"
 	warn "puts a TV into standby, so this can miss. Override with:"
 	warn "  sudo touch /etc/gamemode-autologin.force"
+fi
+
+# ---------------------------------------------------------- controller wake --
+if (( DO_CONTROLLER_WAKE )); then
+	info "Installing Steam Controller wake-from-sleep support"
+	# steam-devices' 60-steam-input.rules enables wakeup on the receiver itself,
+	# but the root hub above it stays disabled and swallows the wake signal.
+	install -Dm644 "$REPO_DIR/files/etc/udev/rules.d/61-steam-controller-wake.rules" \
+		/etc/udev/rules.d/61-steam-controller-wake.rules
+	udevadm control --reload
+	udevadm trigger --action=add --attr-match=idVendor=28de
+
+	# With wakeup enabled, a controller that is still on wakes the PC seconds
+	# after suspend. Turn it off first, the way a Deck does.
+	install -Dm755 "$REPO_DIR/files/usr/libexec/steam-controller-off" \
+		/usr/libexec/steam-controller-off
+	install -Dm644 "$REPO_DIR/files/etc/systemd/system/steam-controller-off.service" \
+		/etc/systemd/system/steam-controller-off.service
+	systemctl daemon-reload
+	systemctl enable steam-controller-off.service
+	warn "If the PC still wakes on its own, another device on the same USB"
+	warn "controller (often a mouse receiver) may be waking it. Check"
+	warn "  grep . /sys/bus/usb/devices/*/power/wakeup"
+fi
+
+# ----------------------------------------------------------- sleep webhooks --
+if (( DO_SLEEP_WEBHOOKS )); then
+	info "Installing sleep/wake webhooks"
+	command -v curl >/dev/null || dnf5 install -y curl
+	install -Dm755 "$REPO_DIR/files/usr/libexec/sleep-webhook" /usr/libexec/sleep-webhook
+	install -Dm644 "$REPO_DIR/files/etc/systemd/system/webhook-sleep.service" \
+		/etc/systemd/system/webhook-sleep.service
+	install -Dm644 "$REPO_DIR/files/etc/systemd/system/webhook-wake.service" \
+		/etc/systemd/system/webhook-wake.service
+	if [[ -e /etc/default/sleep-webhooks ]]; then
+		info "  /etc/default/sleep-webhooks exists, leaving it alone"
+	else
+		install -Dm644 "$REPO_DIR/files/etc/default/sleep-webhooks" /etc/default/sleep-webhooks
+		warn "Set SLEEP_URL and WAKE_URL in /etc/default/sleep-webhooks"
+	fi
+	systemctl daemon-reload
+	systemctl enable webhook-sleep.service webhook-wake.service
+	info "Test without suspending: /usr/libexec/sleep-webhook sleep"
 fi
 
 echo

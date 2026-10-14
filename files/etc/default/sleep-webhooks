@@ -1,0 +1,5 @@
+# Webhooks POSTed by /usr/libexec/sleep-webhook on suspend and resume.
+# Leave a URL empty to skip that event. For Home Assistant, create an automation
+# with a Webhook trigger and use http://<ha-host>:8123/api/webhook/<webhook-id>
+SLEEP_URL=""
+WAKE_URL=""

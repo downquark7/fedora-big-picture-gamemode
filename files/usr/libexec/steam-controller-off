@@ -1,0 +1,35 @@
+#!/usr/bin/python3 -I
+# Turn off every Steam Controller (2026) connected through a Puck, so it doesn't
+# wake the PC right after suspend. Sends Valve's ID_TURN_OFF_CONTROLLER (0x9F,
+# payload "off!") as a feature report to each Puck controller slot.
+# Empty slots (and already-off controllers) reject the report; that's ignored.
+import fcntl, glob, os
+
+PUCK_PIDS = {"1304", "1305"}
+
+def hidiocsfeature(n):
+    return (3 << 30) | (n << 16) | (ord("H") << 8) | 0x06
+
+report = bytes([0x01, 0x9F, 0x04]) + b"off!"
+report += bytes(64 - len(report))
+
+for h in sorted(glob.glob("/sys/class/hidraw/hidraw*")):
+    iface = os.path.realpath(os.path.join(h, "device", ".."))
+    usbdev = os.path.dirname(iface)
+    try:
+        vid = open(os.path.join(usbdev, "idVendor")).read().strip()
+        pid = open(os.path.join(usbdev, "idProduct")).read().strip()
+    except OSError:
+        continue
+    if vid != "28de" or pid not in PUCK_PIDS:
+        continue
+    dev = "/dev/" + os.path.basename(h)
+    try:
+        fd = os.open(dev, os.O_RDWR)
+        try:
+            fcntl.ioctl(fd, hidiocsfeature(len(report)), report)
+            print(f"{dev} ({os.path.basename(iface)}): off sent")
+        finally:
+            os.close(fd)
+    except OSError as e:
+        print(f"{dev} ({os.path.basename(iface)}): skipped ({e.strerror})")
